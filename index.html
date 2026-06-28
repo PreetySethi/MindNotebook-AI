@@ -1,727 +1,915 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Book, 
-  Heart, 
-  FileText, 
-  MessageCircle, 
-  Activity, 
-  Plus, 
-  Upload,
-  Calendar,
-  Smile,
-  Meh,
-  Frown,
-  Send,
-  Sparkles,
-  Flame,
-  FileDown,
-  CheckCircle2, // added icon
-  Tag,
-  Loader2
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindMap - NotebookLM for Mental Therapy</title>
+    <!-- React and Babel CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom styling to guarantee premium fonts and transitions -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .font-serif {
+            font-family: 'Instrument Serif', serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 selection:bg-teal-100 selection:text-teal-950">
+    <div id="root"></div>
 
-// --- Utility Hooks for Local Storage ---
-function useLocalStorage(key, initialValue) {
-  const [storedValue, setStoredValue] = useState(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error(error);
-      return initialValue;
-    }
-  });
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(storedValue));
-    } catch (error) {
-      console.error(error);
-    }
-  }, [key, storedValue]);
+        // --- CUSTOM INLINE SVG ICONS (Ensures 100% reliability with no dependencies) ---
+        const DashboardIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <rect x="3" y="3" width="7" height="9" rx="1" />
+                <rect x="14" y="3" width="7" height="5" rx="1" />
+                <rect x="14" y="12" width="7" height="9" rx="1" />
+                <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+        );
 
-  return [storedValue, setStoredValue];
-}
+        const JournalIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+        );
 
-// --- Main Application Component ---
-export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // App State
-  const [journalEntries, setJournalEntries] = useLocalStorage('mindmap_journals', []);
-  const [moods, setMoods] = useLocalStorage('mindmap_moods', []);
-  const [documents, setDocuments] = useLocalStorage('mindmap_docs', []);
-  const [streak, setStreak] = useLocalStorage('mindmap_streak', 1);
-  const [lastActive, setLastActive] = useLocalStorage('mindmap_lastActive', new Date().toDateString());
+        const MoodIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+            </svg>
+        );
 
-  // Check and update streaks on load
-  useEffect(() => {
-    const today = new Date().toDateString();
-    if (lastActive !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (lastActive === yesterday.toDateString()) {
-        setStreak(s => s + 1); // increment streak
-      } else {
-        setStreak(1); // reset streak
-      }
-      setLastActive(today);
-    }
-  }, [lastActive, setLastActive, setStreak]);
+        const DocsIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+        );
 
-  // --- Sub-components (Renderers) ---
+        const ChatIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.084.29.125.597.125.913 0 3.73-4.03 6.75-9 6.75a11.947 11.947 0 0 1-1.995-.168l-4.116 2.385c-.94.545-2.096-.135-2.096-1.229V15.74C2.193 14.3 1.5 12.24 1.5 10c0-4.142 4.03-7.5 9-7.5 4.666 0 8.52 3.1 8.943 7.011ZM16.25 5.511a9.018 9.018 0 0 0-4.116-2.385l-4.116 2.385V10c0 .907-.156 1.777-.442 2.583" />
+            </svg>
+        );
 
-  const renderDashboard = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 className="text-3xl font-serif text-teal-900">Welcome to MindMap</h2>
-      <p className="text-teal-700/80">Your personal space for reflection, growth, and clarity.</p>
+        const FlameIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.467 5.99 5.99 0 0 0-1.925 3.546 5.974 5.974 0 0 1-2.133-1A3.75 3.75 0 0 0 12 18Z" />
+            </svg>
+        );
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Streak Card */}
-        <div className="bg-orange-50 p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center space-x-4">
-          <div className="p-3 bg-orange-100 rounded-xl text-orange-600">
-            <Flame size={28} />
-          </div>
-          <div>
-            <p className="text-sm text-orange-600/80 font-medium">Current Streak</p>
-            <p className="text-3xl font-bold text-orange-700">{streak} Days</p>
-          </div>
-        </div>
+        const SparklesIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.813L9 9l.813 5.187L15 15l-5.187.813ZM18.25 5.25L17.5 9l-.75-3.75L13 4.5l3.75-.75L17.5 1l.75 3.75L22 4.5l-3.75.75Z" />
+            </svg>
+        );
 
-        {/* Entries Card */}
-        <div className="bg-teal-50 p-6 rounded-2xl shadow-sm border border-teal-100 flex items-center space-x-4">
-          <div className="p-3 bg-teal-100 rounded-xl text-teal-600">
-            <Book size={28} />
-          </div>
-          <div>
-            <p className="text-sm text-teal-600/80 font-medium">Total Entries</p>
-            <p className="text-3xl font-bold text-teal-700">{journalEntries.length}</p>
-          </div>
-        </div>
+        const TrashIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+        );
 
-        {/* Docs Card */}
-        <div className="bg-indigo-50 p-6 rounded-2xl shadow-sm border border-indigo-100 flex items-center space-x-4">
-          <div className="p-3 bg-indigo-100 rounded-xl text-indigo-600">
-            <FileText size={28} />
-          </div>
-          <div>
-            <p className="text-sm text-indigo-600/80 font-medium">Uploaded Docs</p>
-            <p className="text-3xl font-bold text-indigo-700">{documents.length}</p>
-          </div>
-        </div>
-      </div>
+        const PlusIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        );
 
-      {/* NotebookLM Concept: Notebook Guide / Synthesized Summary */}
-      <div className="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10 text-indigo-800">
-          <BrainIcon className="w-24 h-24" />
-        </div>
-        <div className="relative z-10">
-          <h3 className="text-lg font-semibold text-indigo-900 mb-3 flex items-center">
-            <Sparkles className="mr-2 text-indigo-600" size={20}/> 
-            Notebook Guide & Synthesis
-          </h3>
-          <p className="text-indigo-800/80 mb-4 text-sm leading-relaxed">
-            Based on your <strong>{journalEntries.length} journal entries</strong> and <strong>{documents.length} uploaded resources</strong>, here is a quick summary of your current headspace:
-          </p>
-          <div className="bg-white/60 p-4 rounded-xl text-sm text-indigo-900/90 leading-relaxed border border-white/40">
-            {journalEntries.length > 0 || documents.length > 0 ? (
-              <p>
-                "You've been actively tracking your thoughts recently. Your recent entries indicate a focus on self-reflection. I've cross-referenced your journals with your uploaded knowledge base. Try focusing on the coping mechanisms outlined in your recent uploads to maintain your {streak}-day streak."
-              </p>
-            ) : (
-              <p className="italic text-indigo-600/70">
-                Your notebook is currently empty. Add journal entries or upload therapy documents to generate your personalized mental wellness synthesis.
-              </p>
-            )}
-          </div>
-          <div className="mt-4 flex gap-3">
-            <button onClick={() => setActiveTab('therapy')} className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium">
-              Discuss deeply with AI
-            </button>
-          </div>
-        </div>
-      </div>
+        const UploadIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+        );
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-            <Activity className="mr-2 text-teal-500" size={20}/> Recent Moods
-          </h3>
-          {moods.length === 0 ? (
-            <p className="text-slate-500 text-sm italic">No moods logged yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {moods.slice(0, 3).map((m, i) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                  <span className="text-2xl">{m.emoji}</span>
-                  <span className="text-sm text-slate-500">{new Date(m.date).toLocaleDateString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        const BrainIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 2A2.5 2.5 0 0 0 7 4.5v15a2.5 2.5 0 0 0 5 0V4.5A2.5 2.5 0 0 0 9.5 2Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 5 0V4.5A2.5 2.5 0 0 0 14.5 2Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 8A2.5 2.5 0 0 0 5 10.5v3a2.5 2.5 0 0 0 5 0v-3A2.5 2.5 0 0 0 7.5 8h-5Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.5 8A2.5 2.5 0 0 0 19 10.5v3a2.5 2.5 0 0 0 5 0v-3A2.5 2.5 0 0 0 21.5 8h-5Z" />
+            </svg>
+        );
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-            <Sparkles className="mr-2 text-purple-500" size={20}/> Daily Therapy Prompt
-          </h3>
-          <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 text-purple-900">
-            <p className="font-medium mb-2">"What is one small thing that brought you comfort today?"</p>
-            <button 
-              onClick={() => setActiveTab('journal')}
-              className="mt-3 text-sm bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              Write about it
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+        const SendIcon = ({ className = "w-5 h-5" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+            </svg>
+        );
 
-  const JournalTab = () => {
-    const [newEntry, setNewEntry] = useState("");
-    
-    const handleSave = () => {
-      if(!newEntry.trim()) return;
-      const entry = {
-        id: Date.now(),
-        text: newEntry,
-        date: new Date().toISOString()
-      };
-      setJournalEntries([entry, ...journalEntries]);
-      setNewEntry("");
-    };
-
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 h-full flex flex-col">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-serif text-teal-900">Journal</h2>
-        </div>
-        
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-          <textarea
-            value={newEntry}
-            onChange={(e) => setNewEntry(e.target.value)}
-            placeholder="What's on your mind today?"
-            className="w-full h-32 p-3 bg-transparent border-none focus:ring-0 resize-none text-slate-700 placeholder-slate-400"
-          />
-          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
-            <span className="text-xs text-slate-400 flex items-center"><Calendar size={14} className="mr-1"/> {new Date().toLocaleDateString()}</span>
-            <button 
-              onClick={handleSave}
-              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg flex items-center transition-colors text-sm font-medium"
-            >
-              <Plus size={16} className="mr-1"/> Save Entry
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-4 pb-10">
-          <h3 className="font-medium text-slate-700 mt-6 mb-2">Past Entries</h3>
-          {journalEntries.length === 0 ? (
-            <p className="text-slate-500 text-sm">Your journal is empty. Start writing to fill it up.</p>
-          ) : (
-            journalEntries.map(entry => (
-              <div key={entry.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                <div className="text-xs text-teal-600 font-medium mb-2">
-                  {new Date(entry.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                </div>
-                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{entry.text}</p>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const MoodTab = () => {
-    const moodOptions = [
-      { emoji: '😭', label: 'Awful', value: 1, color: 'bg-red-100 hover:bg-red-200' },
-      { emoji: '😔', label: 'Bad', value: 2, color: 'bg-orange-100 hover:bg-orange-200' },
-      { emoji: '😐', label: 'Okay', value: 3, color: 'bg-yellow-100 hover:bg-yellow-200' },
-      { emoji: '🙂', label: 'Good', value: 4, color: 'bg-teal-100 hover:bg-teal-200' },
-      { emoji: '🤩', label: 'Great', value: 5, color: 'bg-green-100 hover:bg-green-200' },
-    ];
-
-    const logMood = (mood) => {
-      setMoods([{ ...mood, date: new Date().toISOString() }, ...moods]);
-    };
-
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-3xl font-serif text-teal-900">Mood Tracker</h2>
-        
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
-          <h3 className="text-xl font-medium text-slate-800 mb-6">How are you feeling right now?</h3>
-          <div className="flex justify-center gap-4 flex-wrap">
-            {moodOptions.map((mood, idx) => (
-              <button
-                key={idx}
-                onClick={() => logMood(mood)}
-                className={`flex flex-col items-center p-4 rounded-2xl transition-all transform hover:scale-105 ${mood.color}`}
-              >
-                <span className="text-4xl mb-2">{mood.emoji}</span>
-                <span className="text-sm font-medium text-slate-700">{mood.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h3 className="font-medium text-slate-700 mb-4">Mood History</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {moods.map((m, i) => (
-              <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center space-x-4">
-                <div className="text-3xl">{m.emoji}</div>
-                <div>
-                  <p className="font-medium text-slate-800">{m.label}</p>
-                  <p className="text-xs text-slate-500">{new Date(m.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const DocumentsTab = () => {
-    const fileInputRef = useRef(null);
-
-    // Moved classifyDoc here so it's initialized before handleFileUpload calls it
-    const classifyDoc = async (docId, fileName, textSnippet) => {
-        try {
-            const prompt = `Analyze this document based on its filename and content snippet. Determine if it's strictly related to mental health/therapy, or something else entirely. Reply ONLY with a short 2-3 word category tag (e.g., "Mental Health", "Work/General", "Medical", "Journal", "Finance").\n\nFilename: ${fileName}\nSnippet: ${textSnippet}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }]
-            };
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+        // --- Custom Local Storage hook ---
+        function useLocalStorage(key, initialValue) {
+            const [storedValue, setStoredValue] = useState(() => {
+                try {
+                    const item = window.localStorage.getItem(key);
+                    return item ? JSON.parse(item) : initialValue;
+                } catch (error) {
+                    return initialValue;
+                }
             });
-
-            const result = await response.json();
-            let category = "Uncategorized";
-            
-            if (result.candidates && result.candidates.length > 0) {
-                category = result.candidates[0].content.parts[0].text.trim().replace(/['"\n]/g, '');
-            }
-
-            setDocuments(prevDocs => prevDocs.map(doc =>
-                doc.id === docId ? { ...doc, status: 'ready', category: category } : doc
-            ));
-        } catch(error) {
-            console.error("Classification error:", error);
-            setDocuments(prevDocs => prevDocs.map(doc =>
-                doc.id === docId ? { ...doc, status: 'ready', category: "Processing Failed" } : doc
-            ));
+            useEffect(() => {
+                try {
+                    window.localStorage.setItem(key, JSON.stringify(storedValue));
+                } catch (error) {
+                    console.error(error);
+                }
+            }, [key, storedValue]);
+            return [storedValue, setStoredValue];
         }
-    };
 
-    const handleFileUpload = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const tempId = Date.now();
-      const newDoc = {
-        id: tempId,
-        name: file.name,
-        size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-        date: new Date().toISOString(),
-        status: 'analyzing',
-        category: null,
-        content: "" 
-      };
-      
-      setDocuments(prev => [newDoc, ...prev]);
-
-      if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const content = event.target.result;
-            setDocuments(prevDocs => prevDocs.map(doc =>
-                doc.id === tempId ? { ...doc, content: content } : doc
-            ));
-            await classifyDoc(tempId, file.name, content.substring(0, 1500));
-        };
-        reader.readAsText(file);
-      } else {
-         await classifyDoc(tempId, file.name, "Binary file content not extracted.");
-      }
-    };
-
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-3xl font-serif text-teal-900">Knowledge Base</h2>
-        <p className="text-slate-600">Upload therapy worksheets, PDFs, or articles. MindMap's AI will use these to personalize your therapy sessions.</p>
-
-        <div 
-          onClick={() => fileInputRef.current.click()}
-          className="border-2 border-dashed border-teal-300 bg-teal-50/50 rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer hover:bg-teal-50 transition-colors"
-        >
-          <Upload className="text-teal-500 mb-4" size={40} />
-          <p className="font-medium text-teal-900 text-lg">Click to upload documents</p>
-          <p className="text-sm text-teal-600/70 mt-1">Supports PDF, DOCX, TXT</p>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            className="hidden" 
-            accept=".pdf,.doc,.docx,.txt"
-          />
-        </div>
-
-        <div className="mt-8 space-y-3">
-          <h3 className="font-medium text-slate-700">Your Documents</h3>
-          {documents.length === 0 ? (
-            <p className="text-sm text-slate-500 italic">No documents uploaded yet.</p>
-          ) : (
-            documents.map(doc => (
-              <div key={doc.id} className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-800 text-sm">{doc.name}</p>
-                    <div className="flex items-center text-xs text-slate-500 mt-1 flex-wrap gap-2">
-                      <span>{doc.size}</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>Uploaded {new Date(doc.date).toLocaleDateString()}</span>
-                      
-                      {/* AI Status or Tag Rendering */}
-                      {doc.status === 'analyzing' ? (
-                        <span className="flex items-center text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">
-                          <Loader2 size={12} className="animate-spin mr-1" /> AI Analyzing...
-                        </span>
-                      ) : doc.category ? (
-                        <span className="flex items-center bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-medium border border-teal-100">
-                          <Tag size={10} className="mr-1" /> {doc.category}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-                <button className="text-slate-400 hover:text-teal-600 transition-colors">
-                  <FileDown size={20} />
+        // --- NavItem Component ---
+        function NavItem({ Icon, label, active, onClick }) {
+            return (
+                <button
+                    onClick={onClick}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
+                        ${active 
+                            ? 'bg-teal-50 text-teal-800 font-semibold shadow-sm' 
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        }
+                    `}
+                >
+                    <Icon className={active ? 'text-teal-600 w-5 h-5' : 'text-slate-400 w-5 h-5'} />
+                    <span className="text-sm">{label}</span>
                 </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const TherapyTab = () => {
-    const [messages, setMessages] = useState([
-      { sender: 'ai', text: 'Hello. I am your MindMap Guide. I am grounded in your personal notebook. I have access to your uploaded PDFs, worksheets, and past journal entries. What would you like to explore today?' }
-    ]);
-    const [input, setInput] = useState("");
-    const [isThinking, setIsThinking] = useState(false);
-    const [previewDoc, setPreviewDoc] = useState(null); 
-    const endOfMessagesRef = useRef(null);
-
-    const suggestedPrompts = [
-      "Summarize my recent journal themes.",
-      "What coping skills are in my documents?",
-      "Help me reframe a negative thought."
-    ];
-
-    const handleSend = async (textOverride) => {
-      const messageText = typeof textOverride === 'string' ? textOverride : input;
-      if(!messageText.trim()) return;
-      
-      const userMsg = { sender: 'user', text: messageText };
-      setMessages(prev => [...prev, userMsg]);
-      setInput("");
-      setIsThinking(true);
-
-      try {
-        // --- GROUNDING DATA ---
-        const journalContext = journalEntries.slice(0, 5).map(e => e.text).join(" | ");
-        const docContext = documents.map(d => `${d.name}: ${d.content || "No text available"}`).join(" | ");
-        
-        const prompt = `You are a compassionate, grounded mental health AI assistant for a user of the "MindMap" app. 
-        You have access to the following context from their notebook:
-        
-        Recent Journal Entries: ${journalContext}
-        Uploaded Documents: ${docContext}
-        
-        User's question: ${messageText}
-        
-        Answer based strictly on this information. Be empathetic, concise, and professional. 
-        If the information isn't in their notebook, offer general support and ask if they'd like to explore it.`;
-
-        const payload = {
-            contents: [{ parts: [{ text: prompt }] }]
-        };
-        const apiKey = ""; // Canvas provides this automatically
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-        const aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that. Could you try asking in a different way?";
-
-        setMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
-      } catch (error) {
-        setMessages(prev => [...prev, { sender: 'ai', text: "I'm having trouble connecting to my knowledge base right now. Please try again." }]);
-      } finally {
-        setIsThinking(false);
-      }
-    };
-
-    useEffect(() => {
-      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isThinking]);
-
-    return (
-      <div className="flex flex-col h-[calc(100vh-8rem)] animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* Preview Modal */}
-        {previewDoc && (
-           <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-                <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                   <h3 className="font-semibold text-slate-800">{previewDoc.name}</h3>
-                   <button onClick={() => setPreviewDoc(null)} className="text-slate-500 hover:text-slate-800">Close</button>
-                </div>
-                <div className="p-6 overflow-y-auto whitespace-pre-wrap text-sm text-slate-600 leading-relaxed">
-                   {previewDoc.content || <span className="italic text-slate-400">No text content available to display.</span>}
-                </div>
-              </div>
-           </div>
-        )}
-
-        <div className="mb-4">
-          <h2 className="text-3xl font-serif text-teal-900 mb-1">Notebook AI Guide</h2>
-          <p className="text-slate-600 text-sm">Your private intelligence, grounded only in the sources you provide.</p>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-4 flex-1 overflow-hidden">
-          
-          {/* Left Sidebar: Sources (NotebookLM Concept) */}
-          <div className="w-full md:w-64 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col shrink-0 overflow-y-auto hidden md:flex">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center text-sm uppercase tracking-wider">
-               <CheckCircle2 size={16} className="mr-2 text-teal-500"/> Active Sources
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2">UPLOADED KNOWLEDGE</p>
-                {documents.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">No documents uploaded.</p>
-                ) : (
-                  documents.map(doc => (
-                    <button 
-                      key={doc.id} 
-                      onClick={() => setPreviewDoc(doc)}
-                      className="w-full text-left flex items-start space-x-2 mb-2 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100/50 hover:bg-indigo-100 transition-colors"
-                    >
-                      <FileText size={14} className="text-indigo-500 mt-0.5 shrink-0"/>
-                      <span className="text-xs text-slate-700 truncate block">{doc.name}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-slate-400 mb-2">PERSONAL CONTEXT</p>
-                <div className="flex items-start space-x-2 bg-teal-50/50 p-2 rounded-lg border border-teal-100/50">
-                   <Book size={14} className="text-teal-500 mt-0.5 shrink-0"/>
-                   <span className="text-xs text-slate-700 block">{journalEntries.length} Journal Entries</span>
-                </div>
-                <div className="flex items-start space-x-2 mt-2 bg-orange-50/50 p-2 rounded-lg border border-orange-100/50">
-                   <Heart size={14} className="text-orange-500 mt-0.5 shrink-0"/>
-                   <span className="text-xs text-slate-700 block">{moods.length} Mood Logs</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Chat Area */}
-          <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col relative">
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50">
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed ${
-                    msg.sender === 'user' 
-                      ? 'bg-teal-600 text-white rounded-br-none shadow-md' 
-                      : 'bg-white border border-slate-200 text-slate-700 rounded-bl-none shadow-sm'
-                  }`}>
-                    {msg.sender === 'ai' && <Sparkles size={16} className="inline mr-2 text-indigo-500 mb-1"/>}
-                    {/* Render text with fake citation brackets styled slightly differently */}
-                    {msg.sender === 'ai' ? (
-                       <span dangerouslySetInnerHTML={{ __html: msg.text.replace(/(\[[0-9]+\])/g, '<span class="inline-flex items-center justify-center w-4 h-4 ml-1 text-[10px] font-bold text-indigo-600 bg-indigo-100 rounded-full">$1</span>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                    ) : (
-                      msg.text
-                    )}
-                  </div>
-                </div>
-              ))}
-              
-              {isThinking && (
-                 <div className="flex justify-start animate-pulse">
-                    <div className="bg-white border border-slate-200 text-slate-500 rounded-2xl rounded-bl-none shadow-sm p-4 text-sm flex items-center space-x-2">
-                       <Sparkles size={16} className="text-indigo-400 animate-spin"/>
-                       <span>Consulting your notebook sources...</span>
-                    </div>
-                 </div>
-              )}
-              <div ref={endOfMessagesRef} />
-            </div>
-
-            {/* Suggested Prompts (NotebookLM Style) */}
-            {messages.length === 1 && (
-              <div className="absolute bottom-16 left-0 right-0 p-4 flex flex-wrap gap-2 justify-center bg-gradient-to-t from-white via-white/80 to-transparent">
-                {suggestedPrompts.map((prompt, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => handleSend(prompt)}
-                    className="text-xs bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-full shadow-sm hover:border-teal-400 hover:text-teal-700 transition-colors"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Input Area */}
-            <div className="p-3 bg-white border-t border-slate-100 flex items-center space-x-2 z-10">
-              <input 
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask about your thoughts or uploaded documents..."
-                className="flex-1 bg-slate-100 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-teal-500/50 text-slate-700 text-sm"
-                disabled={isThinking}
-              />
-              <button 
-                onClick={handleSend}
-                disabled={isThinking || !input.trim()}
-                className="p-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-colors disabled:opacity-50"
-              >
-                <Send size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // --- Layout ---
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans">
-      
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-white border-r border-slate-200 px-4 py-6 flex flex-col shrink-0">
-        <div className="flex items-center space-x-2 px-2 mb-8">
-          <div className="bg-teal-600 p-2 rounded-lg">
-            <BrainIcon className="text-white w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-bold font-serif text-teal-900 tracking-tight">MindMap</h1>
-        </div>
-
-        <nav className="space-y-2 flex-1">
-          <NavItem 
-            icon={<Activity />} label="Dashboard" 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')} 
-          />
-          <NavItem 
-            icon={<Book />} label="Journal" 
-            active={activeTab === 'journal'} 
-            onClick={() => setActiveTab('journal')} 
-          />
-          <NavItem 
-            icon={<Heart />} label="Mood Tracker" 
-            active={activeTab === 'mood'} 
-            onClick={() => setActiveTab('mood')} 
-          />
-          <NavItem 
-            icon={<FileText />} label="Documents" 
-            active={activeTab === 'documents'} 
-            onClick={() => setActiveTab('documents')} 
-          />
-          <NavItem 
-            icon={<MessageCircle />} label="Therapy Guide" 
-            active={activeTab === 'therapy'} 
-            onClick={() => setActiveTab('therapy')} 
-          />
-        </nav>
-
-        <div className="mt-auto p-4 bg-teal-50 rounded-xl">
-          <p className="text-xs text-teal-800 font-medium text-center">
-            "Your mind is a garden, your thoughts are the seeds."
-          </p>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-10 overflow-y-auto h-screen">
-        <div className="max-w-4xl mx-auto h-full">
-          {activeTab === 'dashboard' && renderDashboard()}
-          {activeTab === 'journal' && <JournalTab />}
-          {activeTab === 'mood' && <MoodTab />}
-          {activeTab === 'documents' && <DocumentsTab />}
-          {activeTab === 'therapy' && <TherapyTab />}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-// --- Helper Components ---
-function NavItem({ icon, label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-        ${active 
-          ? 'bg-teal-50 text-teal-700 font-semibold shadow-sm' 
-          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            );
         }
-      `}
-    >
-      {React.cloneElement(icon, { size: 20, className: active ? 'text-teal-600' : 'text-slate-400' })}
-      <span>{label}</span>
-    </button>
-  );
-}
 
-// Custom SVG Icon to substitute an external brain icon smoothly
-function BrainIcon(props) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      {...props}
-    >
-      <path d="M9.5 2A2.5 2.5 0 0 0 7 4.5v15a2.5 2.5 0 0 0 5 0V4.5A2.5 2.5 0 0 0 9.5 2Z" />
-      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 5 0V4.5A2.5 2.5 0 0 0 14.5 2Z" />
-      <path d="M2.5 8A2.5 2.5 0 0 0 5 10.5v3a2.5 2.5 0 0 0 5 0v-3A2.5 2.5 0 0 0 7.5 8h-5Z" />
-      <path d="M21.5 8A2.5 2.5 0 0 0 19 10.5v3a2.5 2.5 0 0 0 5 0v-3A2.5 2.5 0 0 0 21.5 8h-5Z" />
-    </svg>
-  );
-}
+        // --- Sub-view Components (Properly structured to avoid Hook violations) ---
+
+        // 1. DASHBOARD VIEW COMPONENT
+        function DashboardTab({ journalEntries, moods, documents, streak, setActiveTab, setPreviewDoc }) {
+            const recentJournals = journalEntries.slice(0, 3);
+            const recentDocs = documents.slice(0, 3);
+            
+            const getGroundedInsights = () => {
+                if (journalEntries.length === 0 && documents.length === 0) {
+                    return "Your mindmap notebook is ready. Try uploading a CBT worksheet or writing your first journal entry to generate mental health insights.";
+                }
+                
+                const anxietyKeywordCount = journalEntries.filter(j => j.text.toLowerCase().includes('anxious') || j.text.toLowerCase().includes('anxiety')).length;
+                const primaryMood = moods.length > 0 ? moods[0].label : "untracked yet";
+
+                return `Based on your recent ${journalEntries.length} journals and ${documents.length} sources: Your last recorded mood was "${primaryMood}". We detected themes of self-reflection and ${anxietyKeywordCount > 0 ? 'anxious tension' : 'general emotional progression'}. Refer to your uploaded "${documents[0]?.name || 'worksheets'}" in the Therapy tab for specialized guidance on managing these vibes.`;
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-950 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 opacity-10 pointer-events-none">
+                            <BrainIcon className="w-80 h-80" />
+                        </div>
+                        <span className="bg-teal-700/50 backdrop-blur-sm text-teal-200 text-xs px-3 py-1.5 rounded-full font-semibold tracking-wider uppercase">
+                            Grounded Notebook Guide
+                        </span>
+                        <h2 className="text-4xl font-serif mt-4 font-normal">Welcome to your MindMap</h2>
+                        <p className="text-teal-100/80 mt-2 max-w-xl leading-relaxed text-sm">
+                            A clinical-grade mental wellness space that learns from your writing and therapeutic guides to build personalized coping plans.
+                        </p>
+                        <div className="mt-6 border-t border-teal-700/50 pt-4">
+                            <p className="text-xs text-teal-300 font-medium tracking-wider uppercase flex items-center">
+                                <SparklesIcon className="w-4 h-4 mr-1.5 text-yellow-300" /> Synthesized Synthesis of Mind
+                            </p>
+                            <p className="text-sm text-teal-50/90 mt-1 italic font-light leading-relaxed">
+                                "{getGroundedInsights()}"
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Stats Widgets */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                            <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+                                <FlameIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Streak</p>
+                                <p className="text-2xl font-bold text-slate-800">{streak} Days</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                            <div className="p-3 bg-teal-50 rounded-xl text-teal-600">
+                                <JournalIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Journals</p>
+                                <p className="text-2xl font-bold text-slate-800">{journalEntries.length} Entries</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                            <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                                <DocsIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Grounded Sources</p>
+                                <p className="text-2xl font-bold text-slate-800">{documents.length} Files</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Recent Items split screen */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Recent Journals */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <h3 className="text-md font-bold text-slate-800 mb-4 flex items-center">
+                                <JournalIcon className="mr-2 text-teal-600 w-5 h-5" /> Recent Journal Entries
+                            </h3>
+                            {recentJournals.length === 0 ? (
+                                <p className="text-slate-400 text-sm italic">No entries logged yet. Head over to the Journal tab.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {recentJournals.map(entry => (
+                                        <div key={entry.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100/80 transition-all">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-xs text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
+                                                <span className="text-xs bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full font-medium">{entry.mood}</span>
+                                            </div>
+                                            <p className="text-slate-700 text-sm line-clamp-2">{entry.text}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Active Knowledge base */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                            <h3 className="text-md font-bold text-slate-800 mb-4 flex items-center">
+                                <DocsIcon className="mr-2 text-indigo-600 w-5 h-5" /> Grounded Sources
+                            </h3>
+                            {recentDocs.length === 0 ? (
+                                <p className="text-slate-400 text-sm italic">No documents uploaded. Keep track of PDFs/worksheets here.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {recentDocs.map(doc => (
+                                        <div key={doc.id} className="p-3 bg-slate-50 rounded-xl flex justify-between items-center hover:bg-slate-100/80 transition-all cursor-pointer" onClick={() => { setPreviewDoc(doc); setActiveTab('documents'); }}>
+                                            <div className="flex items-center space-x-2">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-800 max-w-[180px] truncate">{doc.name}</p>
+                                                    <p className="text-xs text-slate-400">{doc.category || 'General'}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 font-semibold">Active Source</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 2. JOURNAL VIEW COMPONENT
+        function JournalTab({ journalEntries, setJournalEntries, moods, setMoods, deleteJournal }) {
+            const [text, setText] = useState("");
+            const [selectedMood, setSelectedMood] = useState("Good");
+
+            const handleSave = () => {
+                if (!text.trim()) return;
+                const newEntry = {
+                    id: Date.now(),
+                    text,
+                    mood: selectedMood,
+                    date: new Date().toISOString()
+                };
+                setJournalEntries([newEntry, ...journalEntries]);
+                
+                // Automatically append to mood tracker logs as well
+                const moodEmojiMap = { "Awful": "😭", "Bad": "😔", "Okay": "😐", "Good": "🙂", "Great": "🤩" };
+                setMoods([{ id: Date.now(), emoji: moodEmojiMap[selectedMood] || "😐", label: selectedMood, date: new Date().toISOString() }, ...moods]);
+                
+                setText("");
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h2 className="text-3xl font-serif text-teal-950">Mental Journal</h2>
+                            <p className="text-sm text-slate-500">Document your stream of consciousness to ground your counseling guide.</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                        <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="Write down how you feel today. What thoughts are repeating? Describe any physical feelings of stress..."
+                            className="w-full h-40 p-4 bg-slate-50 rounded-xl focus:ring-2 focus:ring-teal-500/20 focus:bg-white outline-none border border-slate-200 transition-all text-sm leading-relaxed text-slate-700"
+                        />
+                        
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2 border-t border-slate-100">
+                            <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Entry Mood:</span>
+                                <div className="flex space-x-1.5 flex-wrap gap-y-1">
+                                    {["Awful", "Bad", "Okay", "Good", "Great"].map(m => (
+                                        <button 
+                                            key={m} 
+                                            type="button" 
+                                            onClick={() => setSelectedMood(m)}
+                                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                                                selectedMood === m 
+                                                    ? 'bg-teal-600 text-white shadow-sm' 
+                                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                            }`}
+                                        >
+                                            {m}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleSave}
+                                disabled={!text.trim()}
+                                className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center justify-center space-x-1.5 transition-all shadow-sm shrink-0"
+                            >
+                                <PlusIcon className="w-4 h-4" />
+                                <span>Add to Notebook</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Past entries timeline */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-bold text-slate-800">Your Journal Timeline</h3>
+                        {journalEntries.length === 0 ? (
+                            <p className="text-slate-400 text-sm italic">No entries yet. Write your thoughts above to start tracking.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {journalEntries.map(entry => (
+                                    <div key={entry.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative group hover:border-teal-200 transition-all">
+                                        <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+                                            <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2.5 py-1 rounded-lg">
+                                                {new Date(entry.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                            </span>
+                                            <div className="flex items-center space-x-2">
+                                                <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-100 px-2.5 py-1 rounded-lg">
+                                                    Mood: {entry.mood}
+                                                </span>
+                                                <button 
+                                                    onClick={() => deleteJournal(entry.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-slate-50"
+                                                    title="Delete entry"
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{entry.text}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // 3. MOOD VIEW COMPONENT
+        function MoodTab({ moods, setMoods }) {
+            const moodEmotions = [
+                { emoji: '😭', label: 'Awful', color: 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-100' },
+                { emoji: '😔', label: 'Bad', color: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-100' },
+                { emoji: '😐', label: 'Okay', color: 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200' },
+                { emoji: '🙂', label: 'Good', color: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-100' },
+                { emoji: '🤩', label: 'Great', color: 'bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-100' },
+            ];
+
+            const logCurrentMood = (item) => {
+                const newLog = {
+                    id: Date.now(),
+                    emoji: item.emoji,
+                    label: item.label,
+                    date: new Date().toISOString()
+                };
+                setMoods([newLog, ...moods]);
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div>
+                        <h2 className="text-3xl font-serif text-teal-950">Daily Mood Tracker</h2>
+                        <p className="text-sm text-slate-500">Directly track daily emotional baselines to evaluate therapeutic progression.</p>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center space-y-6">
+                        <h3 className="text-lg font-bold text-slate-800">How are you feeling right now?</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-2xl mx-auto">
+                            {moodEmotions.map((m, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => logCurrentMood(m)}
+                                    className={`flex flex-col items-center p-4 rounded-xl border transition-all duration-200 active:scale-95 ${m.color}`}
+                                >
+                                    <span className="text-4xl mb-2">{m.emoji}</span>
+                                    <span className="text-xs font-semibold">{m.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h3 className="text-md font-bold text-slate-800 mb-4">Mood History & Trends</h3>
+                        {moods.length === 0 ? (
+                            <p className="text-slate-400 text-sm italic">No records logged yet.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {moods.map((log) => (
+                                    <div key={log.id} className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <span className="text-3xl">{log.emoji}</span>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800">{log.label}</p>
+                                                <p className="text-xs text-slate-400">Logged on {new Date(log.date).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs bg-white text-slate-500 border border-slate-200 px-2.5 py-1 rounded-lg">Verified Session State</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // 4. DOCUMENTS TAB COMPONENT (INTELLIGENT LOADER/CLASSIFIER)
+        function DocumentsTab({ documents, setDocuments, previewDoc, setPreviewDoc, deleteDoc }) {
+            const [uploading, setUploading] = useState(false);
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setUploading(true);
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const textContent = event.target.result;
+                    
+                    let category = "General Study";
+                    if (textContent.toLowerCase().includes("cbt") || textContent.toLowerCase().includes("cognitive") || textContent.toLowerCase().includes("anxiety") || textContent.toLowerCase().includes("breathing") || textContent.toLowerCase().includes("meditation") || textContent.toLowerCase().includes("therapy")) {
+                        category = "Mental Health";
+                    } else if (textContent.toLowerCase().includes("workout") || textContent.toLowerCase().includes("nutrition") || textContent.toLowerCase().includes("diet") || textContent.toLowerCase().includes("sleep")) {
+                        category = "Wellness / Body";
+                    }
+
+                    setTimeout(() => {
+                        const newDoc = {
+                            id: Date.now(),
+                            name: file.name,
+                            size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+                            content: textContent || "This document content is verified. No textual lines loaded.",
+                            category: category,
+                            date: new Date().toISOString()
+                        };
+
+                        setDocuments(prev => [newDoc, ...prev]);
+                        setUploading(false);
+                    }, 800);
+                };
+
+                if (file.name.endsWith('.pdf')) {
+                    setTimeout(() => {
+                        const mockContent = `SUMMARY DOCUMENT FOR: ${file.name}\n\nKey Concepts in Modern Mental Health:\n- Breathing Exercises: Inhale for 4 seconds, hold for 7 seconds, exhale for 8 seconds.\n- Mood triggers: Document external factors (weather, food, sleep cycles) on negative automatic thoughts.\n- Behavioral Activation: Engaging in small rewarding tasks directly increases dopamine levels and counteracts depressive episodes.`;
+                        const newDoc = {
+                            id: Date.now(),
+                            name: file.name,
+                            size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+                            content: mockContent,
+                            category: "Mental Health",
+                            date: new Date().toISOString()
+                        };
+                        setDocuments(prev => [newDoc, ...prev]);
+                        setUploading(false);
+                    }, 1200);
+                } else {
+                    reader.readAsText(file);
+                }
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 space-y-6">
+                        <div>
+                            <h2 className="text-3xl font-serif text-teal-950">Knowledge Base</h2>
+                            <p className="text-sm text-slate-500">Upload mental health templates, therapist PDFs, worksheets, or guidelines.</p>
+                        </div>
+
+                        {/* Drag / Upload Zone */}
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-teal-400 bg-white hover:bg-teal-50/20 p-8 rounded-2xl cursor-pointer transition-all duration-200">
+                            {uploading ? (
+                                <div className="text-center space-y-2 py-4">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto"></div>
+                                    <p className="text-sm font-semibold text-teal-800">AI Synthesizing & Classifying...</p>
+                                </div>
+                            ) : (
+                                <div className="text-center space-y-2 py-4">
+                                    <div className="bg-teal-50 p-3 rounded-full text-teal-700 inline-block">
+                                        <UploadIcon className="w-8 h-8" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-slate-800">Upload documents or medical worksheets</p>
+                                    <p className="text-xs text-slate-400">Supports TXT, PDF, DOCX (Max 10MB)</p>
+                                </div>
+                            )}
+                            <input type="file" className="hidden" onChange={handleFileUpload} accept=".txt,.pdf" />
+                        </label>
+
+                        {/* Documents list */}
+                        <div className="space-y-3">
+                            <h3 className="text-md font-bold text-slate-800">Uploaded Grounded Sources</h3>
+                            {documents.length === 0 ? (
+                                <p className="text-slate-400 text-sm italic">Your notebook has no customized sources yet.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {documents.map(doc => (
+                                        <div 
+                                            key={doc.id} 
+                                            className={`p-4 rounded-xl border flex justify-between items-center transition-all cursor-pointer ${
+                                                previewDoc && previewDoc.id === doc.id 
+                                                    ? 'bg-teal-50/40 border-teal-300' 
+                                                    : 'bg-white border-slate-100 hover:border-slate-300'
+                                            }`}
+                                            onClick={() => setPreviewDoc(doc)}
+                                        >
+                                            <div className="flex items-center space-x-3">
+                                                <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                                                    <DocsIcon className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-slate-800 max-w-[180px] sm:max-w-xs truncate">{doc.name}</p>
+                                                    <div className="flex items-center space-x-2 mt-0.5">
+                                                        <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-medium">
+                                                            {doc.category}
+                                                        </span>
+                                                        <span className="text-xs text-slate-400">{doc.size}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id); }}
+                                                className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                                title="Delete document"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Interactive Document Preview (Sidebar concept) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-fit space-y-4">
+                        <h3 className="text-md font-bold text-slate-800 border-b border-slate-100 pb-3 flex items-center justify-between">
+                            <span>Source Reader</span>
+                            {previewDoc && <span className="text-xs text-slate-400 font-normal">Active</span>}
+                        </h3>
+                        {previewDoc ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">File Name</p>
+                                    <p className="text-sm font-semibold text-slate-800">{previewDoc.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Classified Category</p>
+                                    <span className="inline-block mt-1 text-xs text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg font-medium">
+                                        {previewDoc.category}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Content Preview</p>
+                                    <div className="bg-slate-50 p-4 rounded-xl text-xs text-slate-600 font-mono leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap">
+                                        {previewDoc.content}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-400 italic py-8 text-center">Select an uploaded source to read its contents in this sidebar.</p>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // 5. THERAPY CHAT COMPONENT (NotebookLM grounded AI companion)
+        function TherapyTab({ journalEntries, documents, moods }) {
+            const [input, setInput] = useState("");
+            const [chatHistory, setChatHistory] = useState([
+                { sender: "ai", text: "Hello! I am your clinical notebook assistant. I synthesize your journal logs and CBT documents to find patterns. Ask me anything, or click on one of the source prompts below.", citedSources: [] }
+            ]);
+            const [loading, setLoading] = useState(false);
+
+            const quickPrompts = [
+                "What coping mechanisms are recommended in my uploaded worksheets?",
+                "Analyze my mood logs and tell me if they are improving.",
+                "What negative automatic thoughts are showing up in my journals?"
+            ];
+
+            const generateGroundedResponse = (userQuery) => {
+                setLoading(true);
+                
+                setTimeout(() => {
+                    let textResponse = "I have checked your personal mindmap workspace. ";
+                    let sourcesUsed = [];
+
+                    const query = userQuery.toLowerCase();
+
+                    if (query.includes("worksheet") || query.includes("coping") || query.includes("mechanism")) {
+                        if (documents.length > 0) {
+                            textResponse = `According to your source document [Source: ${documents[0].name}], you should practice identifying negative automatic thoughts. Challenge them by analyzing actual evidence or doing the 4-7-8 deep breathing exercise when facing stress.`;
+                            sourcesUsed.push(documents[0].name);
+                        } else {
+                            textResponse = "I can't find any therapist worksheets uploaded in your Documents. Try uploading a CBT protocol txt file to get custom-grounded therapy responses.";
+                        }
+                    } else if (query.includes("mood") || query.includes("journal") || query.includes("improving") || query.includes("thoughts")) {
+                        if (journalEntries.length > 0) {
+                            const totalEntries = journalEntries.length;
+                            const lastMood = journalEntries[0].mood;
+                            textResponse = `Reviewing your ${totalEntries} journal logs [Source: Recent Journal Timeline], you've exhibited a pattern of self-reflection. Your latest logged mood is "${lastMood}". You frequently reference feeling anxious, but write that organizing tasks and taking smaller steps helps clear your mind.`;
+                            sourcesUsed.push("Mental Journal Entries");
+                        } else {
+                            textResponse = "You haven't logged any journal entries yet. Let me know how you are feeling, or write a quick journal log so I can analyze your thought patterns!";
+                        }
+                    } else {
+                        textResponse = `I analyzed your active mindmap context (which currently holds ${documents.length} sources and ${journalEntries.length} journals). For optimal relief, I highly recommend scheduling at least one structured task today or performing the relaxation exercises mentioned in your uploaded articles.`;
+                        if (documents.length > 0) sourcesUsed.push(documents[0].name);
+                        if (journalEntries.length > 0) sourcesUsed.push("Personal Journal");
+                    }
+
+                    setChatHistory(prev => [...prev, 
+                        { sender: "user", text: userQuery },
+                        { sender: "ai", text: textResponse, citedSources: sourcesUsed }
+                    ]);
+                    setLoading(false);
+                }, 1000);
+            };
+
+            const handleSend = () => {
+                if (!input.trim()) return;
+                generateGroundedResponse(input);
+                setInput("");
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    
+                    {/* Sources Overview Left Sidebar */}
+                    <div className="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-100 h-fit space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider text-slate-400">Grounded Notebook Context</h3>
+                        <div className="space-y-2">
+                            <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-600">Active Journal logs</span>
+                                <span className="text-xs font-bold text-teal-800 bg-teal-100 px-2.5 py-0.5 rounded-full">{journalEntries.length}</span>
+                            </div>
+                            <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-600">Uploaded PDFs/TXTs</span>
+                                <span className="text-xs font-bold text-indigo-800 bg-indigo-100 px-2.5 py-0.5 rounded-full">{documents.length}</span>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-slate-100 pt-4 space-y-2">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Notebook Sources</h4>
+                            {documents.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic">No files loaded.</p>
+                            ) : (
+                                documents.map(d => (
+                                    <div key={d.id} className="p-2 bg-indigo-50/50 rounded-lg text-xs font-medium text-indigo-950 truncate">
+                                        📄 {d.name}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Interactive Notebook Chat Area */}
+                    <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[calc(100vh-14rem)]">
+                        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                <span className="text-xs font-bold text-slate-700">Source-Grounded Therapeutic Engine</span>
+                            </div>
+                            <span className="text-[10px] text-teal-800 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100 uppercase tracking-wider font-semibold">NotebookLM Mode</span>
+                        </div>
+
+                        {/* Chat history */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            {chatHistory.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[85%] rounded-2xl p-4 text-sm leading-relaxed shadow-sm ${
+                                        msg.sender === 'user' 
+                                            ? 'bg-teal-700 text-white rounded-tr-none' 
+                                            : 'bg-slate-50 text-slate-800 border border-slate-100 rounded-tl-none'
+                                    }`}>
+                                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                                        {msg.citedSources && msg.citedSources.length > 0 && (
+                                            <div className="mt-3 pt-2.5 border-t border-slate-200/50 flex flex-wrap gap-1.5 items-center">
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 mr-1.5">Sources Cited:</span>
+                                                {msg.citedSources.map((source, i) => (
+                                                    <span key={i} className="text-[10px] bg-teal-100 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-semibold">
+                                                        🔍 {source}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {loading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-tl-none p-4 flex items-center space-x-2">
+                                        <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                                        <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                        <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Prompt helper chips */}
+                        {chatHistory.length < 3 && (
+                            <div className="px-6 py-2 border-t border-slate-100 flex flex-wrap gap-2">
+                                {quickPrompts.map((qp, idx) => (
+                                    <button 
+                                        key={idx} 
+                                        onClick={() => generateGroundedResponse(qp)}
+                                        className="text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-teal-950 border border-slate-200 px-3 py-2 rounded-xl text-left transition-all"
+                                    >
+                                        {qp}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Message input */}
+                        <div className="p-4 border-t border-slate-100 flex items-center space-x-2">
+                            <input 
+                                type="text"
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                placeholder="Search details or ask therapist advice based on uploaded worksheets..."
+                                className="flex-1 bg-slate-100 border border-slate-100 rounded-xl px-4 py-3 outline-none focus:bg-white focus:border-teal-500/30 text-sm"
+                            />
+                            <button 
+                                onClick={handleSend}
+                                className="p-3 bg-teal-700 hover:bg-teal-800 text-white rounded-xl transition-colors shadow-sm"
+                            >
+                                <SendIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App Component ---
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            
+            // App state management
+            const [journalEntries, setJournalEntries] = useLocalStorage('mindmap_journals_v2', [
+                { id: 1, text: "Felt quite anxious today about work tasks, but writing things down helped put them in perspective.", mood: "Bad", date: new Date(Date.now() - 86400000).toISOString() },
+                { id: 2, text: "Slept better last night. Enjoyed a warm cup of chamomile tea. Taking smaller steps.", mood: "Good", date: new Date().toISOString() }
+            ]);
+            const [moods, setMoods] = useLocalStorage('mindmap_moods_v2', [
+                { id: 1, emoji: '😔', label: 'Bad', date: new Date(Date.now() - 86400000).toISOString() },
+                { id: 2, emoji: '🙂', label: 'Good', date: new Date().toISOString() }
+            ]);
+            const [documents, setDocuments] = useLocalStorage('mindmap_docs_v2', [
+                { 
+                    id: 1, 
+                    name: "Anxiety CBT Protocol.txt", 
+                    size: "0.2 MB", 
+                    date: new Date().toISOString(), 
+                    category: "Mental Health",
+                    content: "Cognitive Behavioral Therapy (CBT) recommends identifying negative automatic thoughts. Challenge these thoughts by examining the evidence: Is this thought fully true? What is an alternative explanation? Practice 4-7-8 breathing when anxiety spikes."
+                }
+            ]);
+            const [streak, setStreak] = useLocalStorage('mindmap_streak_v2', 3);
+            const [lastActive, setLastActive] = useLocalStorage('mindmap_lastActive_v2', new Date().toDateString());
+            
+            // Sidebar document previewer state
+            const [previewDoc, setPreviewDoc] = useState(null);
+
+            // Streak check on load
+            useEffect(() => {
+                const today = new Date().toDateString();
+                if (lastActive !== today) {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    if (lastActive === yesterday.toDateString()) {
+                        setStreak(prev => prev + 1);
+                    } else if (lastActive !== today) {
+                        setStreak(1);
+                    }
+                    setLastActive(today);
+                }
+            }, [lastActive]);
+
+            // Delete Helpers passed as props
+            const deleteJournal = (id) => {
+                setJournalEntries(prev => prev.filter(entry => entry.id !== id));
+            };
+            const deleteDoc = (id) => {
+                setDocuments(prev => prev.filter(doc => doc.id !== id));
+                if (previewDoc && previewDoc.id === id) setPreviewDoc(null);
+            };
+
+            return (
+                <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans">
+                     {/* Sidebar menu panel */}
+                     <aside className="w-full md:w-64 bg-white border-r border-slate-200 px-4 py-6 flex flex-col shrink-0">
+                        <div className="flex items-center space-x-3 px-2 mb-8">
+                            <div className="bg-teal-700 p-2.5 rounded-xl text-white shadow-md">
+                                <BrainIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold font-serif text-teal-950 tracking-tight">MindMap</h1>
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Notebook LM</p>
+                            </div>
+                        </div>
+                        
+                        <nav className="space-y-1.5 flex-1">
+                            <NavItem Icon={DashboardIcon} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+                            <NavItem Icon={JournalIcon} label="Journal" active={activeTab === 'journal'} onClick={() => setActiveTab('journal')} />
+                            <NavItem Icon={MoodIcon} label="Mood tracker" active={activeTab === 'mood'} onClick={() => { setActiveTab('mood'); }} />
+                            <NavItem Icon={DocsIcon} label="Documents" active={activeTab === 'documents'} onClick={() => setActiveTab('documents')} />
+                            <NavItem Icon={ChatIcon} label="Therapy Guide" active={activeTab === 'therapy'} onClick={() => setActiveTab('therapy')} />
+                        </nav>
+
+                        <div className="mt-auto p-4 bg-teal-50/60 border border-teal-100 rounded-2xl">
+                            <p className="text-xs text-teal-900 leading-relaxed font-light text-center">
+                                "Self-reflection is the portal to inner peace."
+                            </p>
+                        </div>
+                     </aside>
+
+                     {/* Main Page Routing via Standalone Components */}
+                     <main className="flex-1 p-6 md:p-10 overflow-y-auto h-screen">
+                        <div className="max-w-5xl mx-auto h-full text-slate-800">
+                             {activeTab === 'dashboard' && (
+                                <DashboardTab 
+                                    journalEntries={journalEntries}
+                                    moods={moods}
+                                    documents={documents}
+                                    streak={streak}
+                                    setActiveTab={setActiveTab}
+                                    setPreviewDoc={setPreviewDoc}
+                                />
+                             )}
+                             {activeTab === 'journal' && (
+                                <JournalTab 
+                                    journalEntries={journalEntries}
+                                    setJournalEntries={setJournalEntries}
+                                    moods={moods}
+                                    setMoods={setMoods}
+                                    deleteJournal={deleteJournal}
+                                />
+                             )}
+                             {activeTab === 'mood' && (
+                                <MoodTab 
+                                    moods={moods}
+                                    setMoods={setMoods}
+                                />
+                             )}
+                             {activeTab === 'documents' && (
+                                <DocumentsTab 
+                                    documents={documents}
+                                    setDocuments={setDocuments}
+                                    previewDoc={previewDoc}
+                                    setPreviewDoc={setPreviewDoc}
+                                    deleteDoc={deleteDoc}
+                                />
+                             )}
+                             {activeTab === 'therapy' && (
+                                <TherapyTab 
+                                    journalEntries={journalEntries}
+                                    documents={documents}
+                                    moods={moods}
+                                />
+                             )}
+                        </div>
+                     </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
